@@ -5,7 +5,7 @@ from .models import Subscription, User
 
 
 @admin.register(User)
-class CustomUserAdmin(UserAdmin):
+class FoodgramUserAdmin(UserAdmin):
     list_display = (
         'id',
         'username',

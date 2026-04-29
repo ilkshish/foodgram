@@ -5,8 +5,8 @@ from users.models import User
 
 
 MAX_NAME_LENGTH = 256
-MAX_SLUG_LENGTH = 50
-MAX_MEASUREMENT_UNIT_LENGTH = 50
+SHORT_TEXT_LENGTH = 50
+MIN_VALUE = 1
 
 
 class Tag(models.Model):
@@ -17,7 +17,7 @@ class Tag(models.Model):
     )
     slug = models.SlugField(
         'Слаг',
-        max_length=MAX_SLUG_LENGTH,
+        max_length=SHORT_TEXT_LENGTH,
         unique=True
     )
 
@@ -37,7 +37,7 @@ class Ingredient(models.Model):
     )
     measurement_unit = models.CharField(
         'Единица измерения',
-        max_length=MAX_MEASUREMENT_UNIT_LENGTH
+        max_length=SHORT_TEXT_LENGTH
     )
 
     class Meta:
@@ -86,7 +86,7 @@ class Recipe(models.Model):
     )
     cooking_time = models.PositiveSmallIntegerField(
         'Время приготовления',
-        validators=[MinValueValidator(1)]
+        validators=[MinValueValidator(MIN_VALUE)]
     )
     pub_date = models.DateTimeField(
         'Дата публикации',
@@ -117,7 +117,7 @@ class RecipeIngredient(models.Model):
     )
     amount = models.PositiveSmallIntegerField(
         'Количество',
-        validators=[MinValueValidator(1)]
+        validators=[MinValueValidator(MIN_VALUE)]
     )
 
     class Meta:

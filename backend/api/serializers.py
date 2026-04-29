@@ -1,6 +1,7 @@
 import base64
 import uuid
 
+from collections import Counter
 from django.core.files.base import ContentFile
 from djoser.serializers import (
     UserCreateSerializer as DjoserUserCreateSerializer
@@ -19,7 +20,7 @@ from recipes.models import (
 from users.models import Subscription, User
 
 
-class CustomUserSerializer(DjoserUserSerializer):
+class UserSerializer(DjoserUserSerializer):
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.ImageField(read_only=True)
 
@@ -45,7 +46,7 @@ class CustomUserSerializer(DjoserUserSerializer):
         ).exists()
 
 
-class CustomUserCreateSerializer(DjoserUserCreateSerializer):
+class UserCreateSerializer(DjoserUserCreateSerializer):
     class Meta(DjoserUserCreateSerializer.Meta):
         model = User
         fields = (
@@ -123,12 +124,12 @@ class RecipeIngredientWriteSerializer(serializers.Serializer):
     amount = serializers.IntegerField(min_value=1)
 
 
-class SubscriptionSerializer(CustomUserSerializer):
+class SubscriptionSerializer(UserSerializer):
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
-    class Meta(CustomUserSerializer.Meta):
-        fields = CustomUserSerializer.Meta.fields + (
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + (
             'recipes',
             'recipes_count',
         )
@@ -157,7 +158,7 @@ class SubscriptionSerializer(CustomUserSerializer):
 
 class RecipeReadSerializer(serializers.ModelSerializer):
     tags = TagSerializer(many=True, read_only=True)
-    author = CustomUserSerializer(read_only=True)
+    author = UserSerializer(read_only=True)
     ingredients = RecipeIngredientReadSerializer(
         source='recipe_ingredients',
         many=True,
@@ -205,7 +206,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         many=True
     )
     image = Base64ImageField()
-    author = CustomUserSerializer(read_only=True)
+    author = UserSerializer(read_only=True)
 
     class Meta:
         model = Recipe
@@ -227,7 +228,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             )
 
         ingredient_ids = [item['id'] for item in value]
-        if len(ingredient_ids) != len(set(ingredient_ids)):
+        ingredient_counts = Counter(ingredient_ids)
+
+        if any(count > 1 for count in ingredient_counts.values()):
             raise serializers.ValidationError(
                 "Ингредиенты не должны повторяться"
             )
@@ -240,7 +243,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             )
 
         tag_ids = [tag.id for tag in value]
-        if len(tag_ids) != len(set(tag_ids)):
+        tag_counts = Counter(tag_ids)
+
+        if any(count > 1 for count in tag_counts.values()):
             raise serializers.ValidationError(
                 "Теги не должны повторяться"
             )
@@ -303,3 +308,39 @@ class SetPasswordSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError('Текущий пароль неверный')
         return value
+
+
+class UserRecipeRelationSerializer(serializers.Serializer):
+    def validate(self, attrs):
+        user = self.context['request'].user
+        recipe = self.context['recipe']
+        model = self.context['model']
+
+        if model.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(
+                {'errors': 'Рецепт уже добавлен'}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        recipe = self.context['recipe']
+        model = self.context['model']
+        return model.object.create(user=user, recipe=recipe)
+
+
+class UserRecipeRelationDeleteSerializer(serializers.Serializer):
+    def delete(self):
+        user = self.context['request'].user
+        recipe = self.context['recipe']
+        model = self.context['model']
+
+        deleted_count, _ = model.objects.filter(
+            user=user,
+            recipe=recipe
+        ).delete()
+
+        if not deleted_count:
+            raise serializers.ValidationError(
+                {'errors': 'Рецепт не найден'}
+            )

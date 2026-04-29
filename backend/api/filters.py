@@ -20,12 +20,12 @@ class RecipeFilter(django_filters.FilterSet):
 
     def filter_is_favorited(self, queryset, name, value):
         user = getattr(self.request, 'user', None)
-        if value != 1 or user is None or user.is_anonymous:
+        if not value or user is None or user.is_anonymous:
             return queryset
         return queryset.filter(favorited_by__user=user)
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
         user = getattr(self.request, 'user', None)
-        if value != 1 or user is None or user.is_anonymous:
+        if not value or user is None or user.is_anonymous:
             return queryset
         return queryset.filter(in_shopping_carts__user=user)

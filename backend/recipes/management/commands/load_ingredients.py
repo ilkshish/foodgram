@@ -20,32 +20,30 @@ class Command(BaseCommand):
             )
             return
 
-        ingredients_to_create = []
-
         with open(file_path, encoding='utf-8') as csv_file:
             reader = csv.reader(csv_file)
 
-            for row in reader:
-                if len(row) < 2:
-                    continue
+            def ingredients_generator():
+                for row in reader:
+                    if len(row) != 2:
+                        continue
 
-                name = row[0].strip()
-                measurement_unit = row[1].strip()
-
-                if not name or not measurement_unit:
-                    continue
-
-                ingredients_to_create.append(
-                    Ingredient(
-                        name=name,
-                        measurement_unit=measurement_unit
+                    name, measurement_unit = (
+                        item.strip() for item in row
                     )
-                )
 
-        created_objects = Ingredient.objects.bulk_create(
-            ingredients_to_create,
-            ignore_conflicts=True
-        )
+                    if not name or not measurement_unit:
+                        continue
+
+                    yield Ingredient(
+                        name=name,
+                        measurement_unit=measurement_unit,
+                    )
+
+            created_objects = Ingredient.objects.bulk_create(
+                ingredients_generator(),
+                ignore_conflicts=True,
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

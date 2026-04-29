@@ -2,7 +2,6 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -19,7 +18,6 @@ from recipes.models import (
 )
 
 from users.models import Subscription, User
-
 from .filters import RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
@@ -30,7 +28,9 @@ from .serializers import (
     SubscriptionSerializer,
     TagSerializer,
     AvatarSerializer,
-    CustomUserSerializer,
+    UserSerializer,
+    UserRecipeRelationSerializer,
+    UserRecipeRelationDeleteSerializer,
     SetPasswordSerializer,
 )
 
@@ -74,24 +74,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def create_relation(self, model, user, recipe):
-        obj, created = model.objects.get_or_create(user=user, recipe=recipe)
-        if not created:
-            return Response(
-                {'errors': 'Рецепт уже добавлен'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        serializer = ShortRecipeSerializer(recipe,
-                                           context={'request': self.request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer = UserRecipeRelationSerializer(
+            data={},
+            context={
+                'request': self.request,
+                'recipe': recipe,
+                'model': model,
+            }
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        short_serializer = ShortRecipeSerializer(
+            recipe,
+            context={'request': self.request}
+        )
+        return Response(short_serializer.data, status=status.HTTP_201_CREATED)
 
     def delete_relation(self, model, user, recipe):
-        deleted_count, _ = model.objects.filter(user=user,
-                                                recipe=recipe).delete()
-        if not deleted_count:
-            return Response(
-                {'errors': 'Рецепт не найден'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = UserRecipeRelationDeleteSerializer(
+            context={
+                'request': self.request,
+                'recipe': recipe,
+                'model': model,
+            }
+        )
+        serializer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -166,7 +174,7 @@ class UserViewSet(DjoserUserViewSet):
 
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve', 'me'):
-            return CustomUserSerializer
+            return UserSerializer
         if self.action in ('subscriptions', 'subscribe'):
             return SubscriptionSerializer
         if self.action == 'avatar':
@@ -294,7 +302,7 @@ class UserViewSet(DjoserUserViewSet):
         permission_classes=(permissions.IsAuthenticated,)
     )
     def me(self, request):
-        serializer = CustomUserSerializer(
+        serializer = UserSerializer(
             request.user,
             context={'request': request}
         )
