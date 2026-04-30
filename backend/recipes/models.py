@@ -1,12 +1,12 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from core.constants import (
+    MAX_NAME_LENGTH,
+    MIN_VALUE,
+    SHORT_TEXT_LENGTH,    
+)
 from users.models import User
-
-
-MAX_NAME_LENGTH = 256
-SHORT_TEXT_LENGTH = 50
-MIN_VALUE = 1
 
 
 class Tag(models.Model):

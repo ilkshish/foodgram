@@ -22,26 +22,15 @@ class Command(BaseCommand):
 
         with open(file_path, encoding='utf-8') as csv_file:
             reader = csv.reader(csv_file)
-
-            def ingredients_generator():
-                for row in reader:
-                    if len(row) != 2:
-                        continue
-
-                    name, measurement_unit = (
-                        item.strip() for item in row
-                    )
-
-                    if not name or not measurement_unit:
-                        continue
-
-                    yield Ingredient(
-                        name=name,
-                        measurement_unit=measurement_unit,
-                    )
-
             created_objects = Ingredient.objects.bulk_create(
-                ingredients_generator(),
+                (
+                    Ingredient(
+                        name=name.strip(),
+                        measurement_unit=measurement_unit.strip(),
+                    )
+                    for name, measurement_unit in reader
+                    if name.strip() and measurement_unit.strip()
+                ),
                 ignore_conflicts=True,
             )
 
