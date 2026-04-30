@@ -4,7 +4,7 @@ from django.db import models
 from core.constants import (
     MAX_NAME_LENGTH,
     MIN_VALUE,
-    SHORT_TEXT_LENGTH,    
+    SHORT_TEXT_LENGTH,
 )
 from users.models import User
 
