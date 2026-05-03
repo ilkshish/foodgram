@@ -20,6 +20,34 @@ import { useRecipe } from "../../utils/index.js";
 import api from "../../api";
 import { Notification } from "../../components/notification";
 
+const copyText = async (text) => {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    const success = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    return success;
+  } catch (error) {
+    console.log(error);
+    return false;
+  }
+};
+
 const SingleCard = ({ loadItem, updateOrders }) => {
   const [loading, setLoading] = useState(true);
   const [notificationPosition, setNotificationPosition] = useState("-100%");
@@ -35,29 +63,28 @@ const SingleCard = ({ loadItem, updateOrders }) => {
   const history = useHistory();
 
   const handleCopyLink = () => {
-    api
-      .copyRecipeLink({ id })
-      .then(({ "short-link": shortLink }) => {
-        navigator.clipboard
-          .writeText(shortLink)
-          .then(() => {
-            setNotificationPosition("40px");
-            setTimeout(() => {
-              setNotificationPosition("-100%");
-            }, 3000);
-          })
-          .catch(() => {
-            /**
-             * В Safari не работает запись в буфер внутри асинхронного запроса,
-             * поэтому добавил отдельную плашку на этот случай
-             */
-            setNotificationError({
-              text: `Ваша ссылка: ${shortLink}`,
-              position: "40px",
-            });
-          });
-      })
-      .catch((err) => console.log(err));
+  api
+    .copyRecipeLink({ id })
+    .then(async ({ 'short-link': shortLink }) => {
+      const fullLink = shortLink.startsWith('http')
+        ? shortLink
+        : `${window.location.origin}${shortLink}`;
+
+      const copied = await copyText(fullLink);
+
+      if (copied) {
+        setNotificationPosition('40px');
+        setTimeout(() => {
+          setNotificationPosition('-100%');
+        }, 3000);
+      } else {
+        setNotificationError({
+          text: `Ваша ссылка: ${fullLink}`,
+          position: '40px',
+        });
+      }
+    })
+    .catch((err) => console.log(err));
   };
 
   const handleErrorClose = () => {
