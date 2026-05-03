@@ -163,7 +163,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'attachment; filename="shopping_cart.txt"'
         )
         return response
-    
+
     @action(
         detail=True,
         methods=['get'],

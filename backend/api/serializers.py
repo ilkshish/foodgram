@@ -49,7 +49,7 @@ class UserSerializer(DjoserUserSerializer):
 class UserCreateSerializer(DjoserUserCreateSerializer):
     first_name = serializers.CharField(required=True, max_length=150)
     last_name = serializers.CharField(required=True, max_length=150)
-    
+
     class Meta(DjoserUserCreateSerializer.Meta):
         model = User
         fields = (
@@ -239,7 +239,11 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             )
 
         existing_ids = set(
-            Ingredient.objects.filter(id__in=ingredient_ids).values_list('id', flat=True)
+            Ingredient.objects.filter(
+                id__in=ingredient_ids
+            ).values_list(
+                'id', flat=True
+            )
         )
         missing_ids = set(ingredient_ids) - existing_ids
         if missing_ids:

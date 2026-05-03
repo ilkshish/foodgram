@@ -21,7 +21,10 @@ class RecipeIngredientInlineFormSet(BaseInlineFormSet):
         for form in self.forms:
             if not hasattr(form, 'cleaned_data'):
                 continue
-            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+            if (
+                form.cleaned_data
+                and not form.cleaned_data.get('DELETE', False)
+            ):
                 has_ingredient = True
                 break
 
