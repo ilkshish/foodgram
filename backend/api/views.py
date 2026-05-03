@@ -93,12 +93,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def delete_relation(self, model, user, recipe):
         serializer = UserRecipeRelationDeleteSerializer(
+            data={},
             context={
                 'request': self.request,
                 'recipe': recipe,
                 'model': model,
             }
         )
+        serializer.is_valid(raise_exception=True)
         serializer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -161,6 +163,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'attachment; filename="shopping_cart.txt"'
         )
         return response
+    
+    @action(
+        detail=True,
+        methods=['get'],
+        permission_classes=(permissions.AllowAny,),
+        url_path='get-link',
+    )
+    def get_link(self, request, pk=None):
+        recipe = get_object_or_404(Recipe, pk=pk)
+        short_link = request.build_absolute_uri(f'/recipes/{recipe.id}')
+        return Response({'short-link': short_link})
 
 
 class UserViewSet(DjoserUserViewSet):
@@ -264,7 +277,6 @@ class UserViewSet(DjoserUserViewSet):
             serializer = AvatarSerializer(
                 user,
                 data=request.data,
-                partial=True,
                 context={'request': request}
             )
             serializer.is_valid(raise_exception=True)
@@ -316,7 +328,6 @@ class AvatarView(APIView):
         serializer = AvatarSerializer(
             request.user,
             data=request.data,
-            partial=True,
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)

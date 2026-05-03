@@ -47,6 +47,9 @@ class UserSerializer(DjoserUserSerializer):
 
 
 class UserCreateSerializer(DjoserUserCreateSerializer):
+    first_name = serializers.CharField(required=True, max_length=150)
+    last_name = serializers.CharField(required=True, max_length=150)
+    
     class Meta(DjoserUserCreateSerializer.Meta):
         model = User
         fields = (
@@ -224,7 +227,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     def validate_ingredients(self, value):
         if not value:
             raise serializers.ValidationError(
-                "Нужно указать хотя бы один ингредиент"
+                'Нужно указать хотя бы один ингредиент'
             )
 
         ingredient_ids = [item['id'] for item in value]
@@ -232,8 +235,18 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
         if any(count > 1 for count in ingredient_counts.values()):
             raise serializers.ValidationError(
-                "Ингредиенты не должны повторяться"
+                'Ингредиенты не должны повторяться'
             )
+
+        existing_ids = set(
+            Ingredient.objects.filter(id__in=ingredient_ids).values_list('id', flat=True)
+        )
+        missing_ids = set(ingredient_ids) - existing_ids
+        if missing_ids:
+            raise serializers.ValidationError(
+                'Указан несуществующий ингредиент'
+            )
+
         return value
 
     def validate_tags(self, value):
@@ -275,8 +288,21 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
-        ingredients_data = validated_data.pop('ingredients')
-        tags = validated_data.pop('tags')
+        ingredients_data = validated_data.get('ingredients')
+        tags = validated_data.get('tags')
+
+        if not ingredients_data:
+            raise serializers.ValidationError(
+                {'ingredients': 'Нужно указать хотя бы один ингредиент'}
+            )
+
+        if not tags:
+            raise serializers.ValidationError(
+                {'tags': 'Нужно указать хотя бы один тег'}
+            )
+
+        validated_data.pop('ingredients')
+        validated_data.pop('tags')
 
         instance.tags.set(tags)
         instance.recipe_ingredients.all().delete()
@@ -292,7 +318,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
 
 class AvatarSerializer(serializers.ModelSerializer):
-    avatar = Base64ImageField()
+    avatar = Base64ImageField(required=True)
 
     class Meta:
         model = User
@@ -326,21 +352,24 @@ class UserRecipeRelationSerializer(serializers.Serializer):
         user = self.context['request'].user
         recipe = self.context['recipe']
         model = self.context['model']
-        return model.object.create(user=user, recipe=recipe)
+        return model.objects.create(user=user, recipe=recipe)
 
 
 class UserRecipeRelationDeleteSerializer(serializers.Serializer):
+    def validate(self, attrs):
+        user = self.context['request'].user
+        recipe = self.context['recipe']
+        model = self.context['model']
+
+        if not model.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(
+                {'errors': 'Рецепт не найден'}
+            )
+        return attrs
+
     def delete(self):
         user = self.context['request'].user
         recipe = self.context['recipe']
         model = self.context['model']
 
-        deleted_count, _ = model.objects.filter(
-            user=user,
-            recipe=recipe
-        ).delete()
-
-        if not deleted_count:
-            raise serializers.ValidationError(
-                {'errors': 'Рецепт не найден'}
-            )
+        model.objects.filter(user=user, recipe=recipe).delete()

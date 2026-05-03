@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html
 
 from .models import (
@@ -9,6 +11,24 @@ from .models import (
     ShoppingCart,
     Tag,
 )
+
+
+class RecipeIngredientInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+
+        has_ingredient = False
+        for form in self.forms:
+            if not hasattr(form, 'cleaned_data'):
+                continue
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                has_ingredient = True
+                break
+
+        if not has_ingredient:
+            raise ValidationError(
+                'У рецепта должен быть хотя бы один ингредиент.'
+            )
 
 
 @admin.register(Tag)
@@ -26,6 +46,7 @@ class IngredientAdmin(admin.ModelAdmin):
 class RecipeIngredientInline(admin.TabularInline):
     model = RecipeIngredient
     extra = 1
+    formset = RecipeIngredientInlineFormSet
 
 
 @admin.register(Recipe)
@@ -43,14 +64,14 @@ class RecipeAdmin(admin.ModelAdmin):
 
     @admin.display(description='В избранном')
     def favorites_count(self, obj):
-        return obj.in_favorites.count()
+        return obj.favorited_by.count()
 
     @admin.display(description='Изображение')
     def recipe_image(self, obj):
         if obj.image:
             return format_html(
-                '<img src="{}" width="50"'
-                'height="50" style="object-fit: cover;" />',
+                '<img src="{}" width="50" height="50" '
+                'style="object-fit: cover;" />',
                 obj.image.url,
             )
         return 'Нет изображения'
