@@ -1,6 +1,6 @@
 from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework import mixins, permissions, status, viewsets
@@ -57,6 +57,11 @@ class IngredientViewSet(mixins.ListModelMixin,
         if name:
             queryset = queryset.filter(name__istartswith=name)
         return queryset
+
+
+def short_link_redirect(request, pk):
+    recipe = get_object_or_404(Recipe, pk=pk)
+    return redirect(f'/recipes/{recipe.id}')
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -172,7 +177,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_link(self, request, pk=None):
         recipe = get_object_or_404(Recipe, pk=pk)
-        short_link = f'/recipes/{recipe.id}'
+        short_link = request.build_absolute_uri(f'/s/{recipe.id}')
         return Response({'short-link': short_link})
 
 
